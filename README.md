@@ -20,35 +20,15 @@ See [LICENSE](LICENSE) for full terms and disclaimer.
 
 ## Steps
 
-### Install `minikube`
+### Start `minikube` and the `metrics-server`
 
 ```bash
 task start
 ```
 
-### Install the `metrics-server`
-
-```bash
-kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-```
-
-or
-
-```bash
-minikube start --addons metrics-server
-```
-
-or
-
-```bash
-task start
-```
-
-### TLS
+### Create TLS
 
 - API aggregation requires HTTPS. We need to generate a self-signed CA and server certificate
-
-Check in [`Taskfile.yaml`](Taskfile.yaml) to find the actual `openssl` commands or use
 
 ```bash
 task certs
@@ -61,12 +41,6 @@ TAG=0.0.9 task build
 ```
 
 ### Load image into Minikube
-
-```bash
-minikube image load k8s-efficiency-auditor:0.0.9
-```
-
-or
 
 ```bash
 TAG=0.0.9 task load
