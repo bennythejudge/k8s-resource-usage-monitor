@@ -1,0 +1,17 @@
+{{- if .Values.apiServiceEnabled -}}
+{{- $ca := .Files.Get "certs/ca.crt" | required "Missing certs/ca.crt file" }}
+apiVersion: apiregistration.k8s.io/v1
+kind: APIService
+metadata:
+  name: {{ .Values.apiVersion }}.{{ .Values.apiGroup }}
+spec:
+  group: {{ .Values.apiGroup }}
+  version: {{ .Values.apiVersion }}
+  groupPriorityMinimum: 1000
+  versionPriority: 15
+  service:
+    name: {{ include "k8s-efficiency-auditor.fullname" . }}
+    namespace: {{ .Release.Namespace }}
+    port: {{ .Values.service.port }}
+  caBundle: {{ $ca | b64enc }}
+{{- end -}}

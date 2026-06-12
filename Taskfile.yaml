@@ -1,0 +1,184 @@
+# Taskfile.yml
+version: '3'
+
+vars:
+  IMAGE_NAME: k8s-efficiency-auditor
+  NAMESPACE: kube-system
+  CHART_PATH: ./helm/k8s-efficiency-auditor
+  RELEASE_NAME: audit-live
+  SERVICE_NAME: '{{.RELEASE_NAME}}-k8s-efficiency-auditor'
+  SERVICE_DNS: '{{.SERVICE_NAME}}.{{.NAMESPACE}}.svc'
+  LOCAL_PORT: "8443"
+
+tasks:
+  default:
+    desc: "Full setup: start minikube, certs, build, load, deploy, test"
+    cmds:
+      - task: start
+      - task: certs
+      - task: build
+      - task: load
+      - task: deploy
+      - task: test
+
+  start:
+    desc: "Start minikube with metrics-server addon"
+    cmds:
+      - minikube start --addons=metrics-server
+    status:
+      - minikube status >/dev/null 2>&1 ; echo $?
+
+  delete:
+    desc: "Delete minikube cluster"
+    cmds:
+      - minikube delete --purge
+    prompt: "This will delete the entire minikube cluster. Continue?"
+
+  certs:
+    desc: "Generate TLS certificates with correct SAN"
+    dir: '{{.CHART_PATH}}'
+    cmds:
+      - mkdir -p certs
+      - openssl genrsa -out certs/ca.key 2048
+      - openssl req -x509 -new -nodes -key certs/ca.key -days 365 -subj "/CN=aggregator-ca" -out certs/ca.crt
+      - |
+        cat > certs/server.conf <<EOF
+        [req]
+        req_extensions = v3_req
+        distinguished_name = req_distinguished_name
+        [req_distinguished_name]
+        [v3_req]
+        basicConstraints = CA:FALSE
+        keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+        extendedKeyUsage = serverAuth
+        subjectAltName = DNS:{{.SERVICE_DNS}},DNS:{{.SERVICE_DNS}}.cluster.local
+        EOF
+      - openssl genrsa -out certs/server.key 2048
+      - openssl req -new -key certs/server.key -subj "/CN={{.SERVICE_DNS}}" -config certs/server.conf -out certs/server.csr
+      - openssl x509 -req -in certs/server.csr -CA certs/ca.crt -CAkey certs/ca.key -CAcreateserial -out certs/server.crt -days 365 -extensions v3_req -extfile certs/server.conf
+      - rm certs/server.conf certs/server.csr certs/ca.srl
+    generates:
+      - '{{.CHART_PATH}}/certs/ca.crt'
+      - '{{.CHART_PATH}}/certs/server.crt'
+      - '{{.CHART_PATH}}/certs/server.key'
+
+  build:
+    desc: "Build Docker image (TAG is required, provide with -v TAG=value)"
+    # preconditions:
+    #   - sh: test -n "{{.TAG}}"
+    #     msg: "TAG variable is required. Use: task build -v TAG=your-tag"
+    cmds:
+      - docker build -t {{.IMAGE_NAME}}:{{.TAG}} .
+    requires:
+      vars: [TAG]
+
+  load:
+    desc: "Load Docker image into minikube"
+    cmds:
+      - minikube image load {{.IMAGE_NAME}}:{{.TAG}}
+    requires:
+      vars: [TAG]
+
+
+  deploy-without-apiservice:
+    desc: "Install/upgrade Helm chart (APIService disabled by default)"
+    cmds:
+      - |
+        helm upgrade --install {{.RELEASE_NAME}} {{.CHART_PATH}} \
+          --namespace {{.NAMESPACE}} \
+          --set image.repository={{.IMAGE_NAME}} \
+          --set image.tag={{.TAG}} \
+          --set apiServiceEnabled=false \
+          --set fullnameOverride={{.RELEASE_NAME}}-k8s-efficiency-auditor \
+          --wait
+    requires:
+      vars: [TAG]
+
+  check-pre-apiservice:
+    desc: "Port-forward and test the API endpoints"
+    cmds:
+      - |
+        echo "Waiting for service to be ready..."
+        kubectl wait --for=jsonpath='{.spec.ports[?(@.port==443)].targetPort}'=8443 service/{{.SERVICE_NAME}} -n {{.NAMESPACE}} --timeout=60s || true
+        echo "Starting port-forward (background)..."
+          kubectl port-forward -n {{.NAMESPACE}} service/{{.SERVICE_NAME}} {{.LOCAL_PORT}}:443 &
+          PF_PID=$!
+          sleep 3
+          echo "Testing health endpoint..."
+          curl -k https://localhost:{{.LOCAL_PORT}}/healthz || echo "HEALTH FAILED"
+          echo "Testing discovery endpoint..."
+          curl -k https://localhost:{{.LOCAL_PORT}}/apis/example.com/v1
+          echo "Testing custom endpoint (default namespace)..."
+          curl -q -k "https://localhost:{{.LOCAL_PORT}}/apis/example.com/v1/namespaces/kube-system/pod-resources" | jq '.'
+          kill $PF_PID 2>/dev/null || true
+
+  check-new-api:
+    desc: "Check if the new API works"
+    cmds:
+      -  |
+        kubectl get --raw "/apis/example.com/v1/namespaces/kube-system/pod-resources" | jq '.'
+
+  deploy-with-apiservice:
+    desc: "Deploy with APIService enabled (CAUTION: test without APIService first)"
+    cmds:
+      - task: deploy-without-apiservice
+        vars: { APISERVICE_ENABLED: "true" }
+
+  full-clean:
+    desc: "Delete cluster and remove generated certs"
+    cmds:
+      - task: delete
+      - rm -rf {{.CHART_PATH}}/certs
+
+  # verify-certs:
+  #   desc: Verify that TLS certificates are valid, match, and contain the correct SAN
+  #   dir: '{{.CHART_PATH}}'
+  #   cmds:
+  #     - echo "=== Checking certificate files in certs/ ==="
+  #     - 'test -f certs/ca.crt || { echo "ERROR: ca.crt missing"; exit 1; }'
+  #     - 'test -f certs/server.crt || { echo "ERROR: server.crt missing"; exit 1; }'
+  #     - 'test -f certs/server.key || { echo "ERROR: server.key missing"; exit 1; }'
+  #     - echo "=== Certificate and key modulus match? ==="
+  #     - 'openssl x509 -noout -modulus -in certs/server.crt | openssl md5'
+  #     - 'openssl rsa -noout -modulus -in certs/server.key | openssl md5'
+  #     - echo "If the two hashes above are identical, the key pair is valid."
+  #     - echo "=== Checking certificate expiration ==="
+  #     - 'openssl x509 -in certs/server.crt -noout -dates'
+  #     - echo "=== Subject Alternative Names (SAN) ==="
+  #     - 'openssl x509 -in certs/server.crt -text -noout | grep -A1 "Subject Alternative Name" || echo "WARNING: No SAN found!"'
+  #     - echo "=== Expected SAN: {{.SERVICE_DNS}} and {{.SERVICE_DNS}}.cluster.local ==="
+  #     - echo "=== Checking CA signature ==="
+  #     - 'openssl verify -CAfile certs/ca.crt certs/server.crt && echo "Certificate chain valid." || echo "ERROR: Certificate not signed by CA"'
+  #     - 'echo "=== Optional: Compare CA bundle in APIService (if deployed) ==="'
+  #     - 'kubectl get apiservice v1.example.com -o jsonpath='\''{.spec.caBundle}'\'' | base64 -d > /tmp/current-ca.crt 2>/dev/null && (diff certs/ca.crt /tmp/current-ca.crt && echo "APIService CA matches local CA" || echo "WARNING: APIService CA differs from local CA") || echo "APIService not found, skipping"'
+
+  verify-pod-cert:
+    desc: Check the certificate mounted in the running pod
+    cmds:
+      - |
+        echo "Waiting for pod with label app=k8s-efficiency-auditor..."
+        kubectl wait --for=condition=ready pod -l app=k8s-efficiency-auditor -n {{.NAMESPACE}} --timeout=120s
+        POD=$(kubectl get pod -n {{.NAMESPACE}} -l app=k8s-efficiency-auditor -o jsonpath='{.items[0].metadata.name}')
+        if [ -z "$POD" ]; then echo "No pod found"; exit 1; fi
+        echo "Pod: $POD"
+        echo "=== Subject Alternative Names ==="
+        kubectl exec -n {{.NAMESPACE}} $POD -- cat /tls/tls.crt | openssl x509 -text -noout | grep -A1 "Subject Alternative Name"
+        echo "=== Certificate and key modulus (must match) ==="
+        kubectl exec -n {{.NAMESPACE}} $POD -- sh -c 'openssl x509 -noout -modulus -in /tls/tls.crt | openssl md5'
+        kubectl exec -n {{.NAMESPACE}} $POD -- sh -c 'openssl rsa -noout -modulus -in /tls/tls.key | openssl md5'
+        echo "=== Certificate details ==="
+        kubectl exec -n {{.NAMESPACE}} $POD -- sh -c 'openssl x509 -in /tls/tls.crt -noout -issuer -subject -dates'
+
+  deploy:
+    desc: "Install/upgrade Helm chart"
+    cmds:
+      - |
+        helm upgrade --install {{.RELEASE_NAME}} {{.CHART_PATH}} \
+          --namespace {{.NAMESPACE}} \
+          --set image.repository={{.IMAGE_NAME}} \
+          --set image.tag={{.TAG}} \
+          --set apiServiceEnabled=true \
+          --set fullnameOverride={{.RELEASE_NAME}}-k8s-efficiency-auditor \
+          --wait
+    requires:
+      vars: [TAG]

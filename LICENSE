@@ -1,0 +1,54 @@
+MIT License
+
+Copyright (c) 2026
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+DISCLAIMER
+==========
+
+⚠️  THIS SOFTWARE IS AN EXPERIMENTAL PROJECT AND IS PROVIDED "AS-IS"
+
+This project is intended SOLELY for educational and experimental purposes.
+It is NOT intended for production use, nor is it suitable for deployment in
+any production or non-production Kubernetes cluster without significant 
+additional review, testing, and hardening.
+
+This software:
+- Is provided without any warranty, express or implied
+- Comes with no guarantee of functionality or reliability
+- Should NOT be used in any critical or production environment
+- Should NOT be used with sensitive or important data
+- Should NOT be considered secure or battle-tested
+
+The author(s) take NO RESPONSIBILITY for:
+- Any damage, data loss, or security breaches caused by this software
+- Any misconfiguration or misuse of this software
+- Any vulnerabilities present in this code
+- Any compatibility issues with your Kubernetes cluster
+- Any performance impact or resource exhaustion
+
+Use this software entirely at your own risk. If you choose to use it,
+you do so with the understanding that you are solely responsible for
+reviewing the code, understanding its behavior, and ensuring it meets
+your security and operational requirements.
+
+For more information, see the LICENSE file and README.md.

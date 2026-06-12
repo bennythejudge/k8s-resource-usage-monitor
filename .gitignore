@@ -1,0 +1,7 @@
+certs/
+*.crt
+*.key
+*.csr
+*.srl
+*.png
+go.sum

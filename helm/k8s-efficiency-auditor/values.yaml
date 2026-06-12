@@ -1,0 +1,23 @@
+# Default values for the chart
+image:
+  repository: k8s-efficiency-auditor
+  tag: v0.0.7
+  pullPolicy: IfNotPresent
+
+service:
+  port: 443
+  targetPort: 8443
+
+apiGroup: example.com
+apiVersion: v1
+
+rbac:
+  create: true
+
+# TLS: if you already have a secret, set existingTLSSecret; otherwise chart will generate a self-signed cert
+existingTLSSecret: ""
+# For automatic generation, you can set these:
+certificate:
+  commonName: k8s-efficiency-auditor.default.svc
+  validityDays: 365
+apiServiceEnabled: true

@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "k8s-efficiency-auditor.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "k8s-efficiency-auditor.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "k8s-efficiency-auditor.name" . }}
+    spec:
+      serviceAccountName: {{ include "k8s-efficiency-auditor.fullname" . }}
+      containers:
+      - name: api
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        args:
+        - --port={{ .Values.service.targetPort }}
+        - --tls-cert=/tls/tls.crt
+        - --tls-key=/tls/tls.key
+        ports:
+        - containerPort: {{ .Values.service.targetPort }}
+          name: https
+        volumeMounts:
+        - name: tls
+          mountPath: /tls
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: {{ .Values.service.targetPort }}
+            scheme: HTTPS
+      volumes:
+      - name: tls
+        secret:
+          secretName: {{ .Values.existingTLSSecret | default "k8s-efficiency-auditor-tls" }}

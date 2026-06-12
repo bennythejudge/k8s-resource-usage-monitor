@@ -1,0 +1,8 @@
+Thank you for installing {{ .Chart.Name }}.
+
+Your custom API is available at: /apis/{{ .Values.apiGroup }}/{{ .Values.apiVersion }}/...
+
+To test it:
+  kubectl get --raw "/apis/{{ .Values.apiGroup }}/{{ .Values.apiVersion }}/namespaces/default/pod-resources"
+
+Make sure the Metrics Server is installed in your cluster.
