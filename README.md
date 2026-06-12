@@ -1,5 +1,3 @@
-# An experiment with Kubernetes API aggregation layer
-
 ⚠️ **DISCLAIMER: This is an Experimental Project**
 
 This project is provided **as-is** for educational and experimental purposes only. It is **NOT** intended for use in any production or non-production Kubernetes cluster. The author takes **NO RESPONSIBILITY** for any damage, data loss, security breaches, or misuse of this software.
@@ -7,6 +5,8 @@ This project is provided **as-is** for educational and experimental purposes onl
 See [LICENSE](LICENSE) for full terms and disclaimer.
 
 ---
+
+# An experiment with Kubernetes API aggregation layer
 
 - A tiny Kubernetes API extension to get a JSON showing all Pods with their `resources` and actual CPU/Mem usage via `metric-server`
 
