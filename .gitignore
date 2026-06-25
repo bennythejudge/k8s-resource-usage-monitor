@@ -5,3 +5,4 @@ certs/
 *.srl
 *.png
 go.sum
+k8s-efficiency-auditor
