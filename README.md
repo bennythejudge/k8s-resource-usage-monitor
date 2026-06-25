@@ -60,8 +60,10 @@ kubectl get pods -n kube-system -w
 
 ### Check API
 
+This could take several minutes to be available:
+
 ```bash
-kubectl api-resource | grep pod-resource
+kubectl api-resources | grep pod-resource
 
 kubectl get --raw "/apis/example.com/v1/namespaces/kube-system/pod-resources"
 ```
